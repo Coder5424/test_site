@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Табличное отображение данных Studies</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <h1>Таблица данных Studies</h1>
+
+    <!-- Форма фильтрации данных -->
+    <form action="{% url 'test_datatable:studies' %}" method="get" id="filter-form">
+        <!-- Фильтр по Дате рождения пациента (DateField) -->
+        <label for="patient-birthdate-start">Дата рождения пациента (с):</label>
+        <input type="date" name="patient-birthdate-filter-start" id="patient-birthdate-start" value="{{ date_birthday_from }}">
+        <label for="patient-birthdate-end">Дата рождения пациента (по):</label>
+        <input type="date" name="patient-birthdate-filter-end" id="patient-birthdate-end" value="{{ date_birthday_to }}">
+        <br>
+        <br>
+
+        <!-- Фильтр по Дате и времени исследования (DateTimeField) -->
+        <label for="study-date-start">Дата и время исследования (с):</label>
+        <input type="datetime-local" name="study-date-filter-start" id="study-date-start" value="{{ date_study_from }}">
+        <label for="study-date-end">Дата и время исследования (по):</label>
+        <input type="datetime-local" name="study-date-filter-end" id="study-date-end" value="{{ date_study_to }}">
+        <br>
+        <br>
+
+        <label for="search-input">Поиск по ФИО:</label>
+        <input type="text" name="search-input-fio" id="search-input" value="{{ search_fio }}">
+
+        <label for="search-input">Поиск по идентификатору:</label>
+        <input type="text" name="search-input-id" id="search-input" value="{{ search_id }}">
+        <br>
+        <br>
+
+        <!-- Фильтр по Модальности исследования (ForeignKey) -->
+        <label for="study-modality-filter">Модальность исследования:</label>
+        <select name="study-modality-filter" id="study-modality-filter" multiple>
+            {% for modality in modalities %}
+                <option value="{{ modality.id }}" {% if modality.id in selected_modalities %} selected {% endif %}>{{ modality.name }}</option>
+            {% endfor %}
+        </select>
+        <br>
+        <br>
+
+        <label for="reset-filters">Сбросить фильтры:</label>
+        <input type="checkbox" name="reset-filters" id="reset-filters">
+
+        <!-- Кнопка для отправки формы фильтрации -->
+        <input type="submit" value="Применить фильтр">
+    </form>
+
+    <br>
+    <br>
+
+    <!-- Таблица для отображения данных -->
+    <table>
+        <thead>
+            <tr>
+                <th onclick="sortTable(0)">ФИО пациента</th>
+                <th onclick="sortTable(1)">Дата рождения пациента</th>
+                <th onclick="sortTable(2)">Идентификатор исследования</th>
+                <th onclick="sortTable(3)">Дата и время исследования</th>
+                <th onclick="sortTable(4)">Модальность исследования</th>
+            </tr>
+        </thead>
+            <tbody>
+                {% for study in studies %}
+                <tr>
+                    <td>{{ study.patient_fio }}</td>
+                    <td>{{ study.patient_birthdate }}</td>
+                    <td>{{ study.study_uid }}</td>
+                    <td>{{ study.study_date }}</td>
+                    <td>{{ study.study_modality }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">Нет данных для отображения.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+    </table>
+
+    <br>
+    <br>
+
+    <div class="pagination">
+        <span class="step-links">
+            {% if page.has_previous %}
+                <a href="?page=1&patient-birthdate-filter-start={{ date_birthday_from }}&patient-birthdate-filter-end={{ date_birthday_to }}&study-date-filter-start={{ date_study_from }}&study-date-filter-end={{ date_study_to }}&search-input-fio={{ search_fio }}&search-input-id={{ search_id }}&study-modality-filter={{ selected_modalities|join:'&study-modality-filter=' }}">&laquo; первая</a>
+                <a href="?page={{ page.previous_page_number }}&patient-birthdate-filter-start={{ date_birthday_from }}&patient-birthdate-filter-end={{ date_birthday_to }}&study-date-filter-start={{ date_study_from }}&study-date-filter-end={{ date_study_to }}&search-input-fio={{ search_fio }}&search-input-id={{ search_id }}&study-modality-filter={{ selected_modalities|join:'&study-modality-filter=' }}">предыдущая</a>
+            {% endif %}
+
+            <span class="current-page">
+                Страница {{ page.number }} из {{ page.paginator.num_pages }}.
+            </span>
+
+            {% if page.has_next %}
+                <a href="?page={{ page.next_page_number }}&patient-birthdate-filter-start={{ date_birthday_from }}&patient-birthdate-filter-end={{ date_birthday_to }}&study-date-filter-start={{ date_study_from }}&study-date-filter-end={{ date_study_to }}&search-input-fio={{ search_fio }}&search-input-id={{ search_id }}&study-modality-filter={{ selected_modalities|join:'&study-modality-filter=' }}">следующая</a>
+                <a href="?page={{ page.paginator.num_pages }}&patient-birthdate-filter-start={{ date_birthday_from }}&patient-birthdate-filter-end={{ date_birthday_to }}&study-date-filter-start={{ date_study_from }}&study-date-filter-end={{ date_study_to }}&search-input-fio={{ search_fio }}&search-input-id={{ search_id }}&study-modality-filter={{ selected_modalities|join:'&study-modality-filter=' }}">последняя &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+
+    <br>
+    <br>
+
+    <script>
+        function sortTable(columnIndex) {
+          const table = document.querySelector("table");
+          const tbody = table.querySelector("tbody");
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+
+          // Переменная для хранения текущего порядка сортировки
+          let sortOrder = table.getAttribute("data-sort-order") || "asc";
+
+          rows.sort((rowA, rowB) => {
+            const cellA = rowA.querySelector(`td:nth-child(${columnIndex + 1})`).textContent;
+            const cellB = rowB.querySelector(`td:nth-child(${columnIndex + 1})`).textContent;
+
+            if (columnIndex === 1) {
+              // Если это столбец с датами, преобразуем даты в объекты Date для сравнения
+              const dateA = new Date(cellA);
+              const dateB = new Date(cellB);
+
+              if (sortOrder === "asc") {
+                return dateA - dateB;
+              } else {
+                return dateB - dateA;
+              }
+            } else {
+              if (sortOrder === "asc") {
+                return cellA.localeCompare(cellB);
+              } else {
+                return cellB.localeCompare(cellA);
+              }
+            }
+          });
+
+          // Изменяем порядок сортировки при каждом клике
+          sortOrder = sortOrder === "asc" ? "desc" : "asc";
+
+          rows.forEach(row => tbody.appendChild(row));
+
+          // Обновляем атрибут data-sort-order таблицы
+          table.setAttribute("data-sort-order", sortOrder);
+        }
+
+    </script>
+
+
+</body>
+</html>
